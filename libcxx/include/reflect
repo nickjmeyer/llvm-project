@@ -1,0 +1,7 @@
+namespace std
+{
+template <class T>
+struct get_name
+{
+};
+}

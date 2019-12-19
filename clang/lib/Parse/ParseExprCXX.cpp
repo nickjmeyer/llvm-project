@@ -3275,6 +3275,14 @@ static ExpressionTrait ExpressionTraitFromTokKind(tok::TokenKind kind) {
   }
 }
 
+static ReflectTrait ReflectionTraitFromTokKind(tok::TokenKind kind) {
+  switch(kind) {
+  default: llvm_unreachable("Not a known unary expression trait.");
+#define REFLECT_TRAIT(Spelling, Name, Key) \
+  case tok::kw_ ## Spelling: return RT_ ## Name;
+  }
+}
+
 static unsigned TypeTraitArity(tok::TokenKind kind) {
   switch (kind) {
     default: llvm_unreachable("Not a known type trait");

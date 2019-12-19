@@ -92,6 +92,10 @@ namespace clang {
     ATT_ArrayExtent
   };
 
+  enum ReflectTrait {
+    RT_GetName
+  };
+
   /// Names for the "expression or type" traits.
   enum UnaryExprOrTypeTrait {
     UETT_SizeOf,

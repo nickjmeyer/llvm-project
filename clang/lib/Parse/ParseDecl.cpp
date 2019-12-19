@@ -28,6 +28,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 
+#include <iostream>
+
 using namespace clang;
 
 //===----------------------------------------------------------------------===//
@@ -52,20 +54,29 @@ TypeResult Parser::ParseTypeName(SourceRange *Range,
   DeclSpec DS(AttrFactory);
   if (Attrs)
     DS.addAttributes(*Attrs);
+  std::cout << "type spec: " << static_cast<unsigned>(DS.getTypeSpecType()) << " " << (DS.getTypeSpecType() == TST_decltype) << "\n";
+  std::cout << "Parse qualifier list\n";
   ParseSpecifierQualifierList(DS, AS, DSC);
+  std::cout << "<<Parse qualifier list\n";
   if (OwnedType)
     *OwnedType = DS.isTypeSpecOwned() ? DS.getRepAsDecl() : nullptr;
 
   // Parse the abstract-declarator, if present.
+  std::cout << "declarator\n";
+  std::cout << DS.getTypeSpecType() << " == " << DeclSpec::TST_error << "\n";
   Declarator DeclaratorInfo(DS, Context);
   ParseDeclarator(DeclaratorInfo);
   if (Range)
     *Range = DeclaratorInfo.getSourceRange();
 
+  std::cout << "checkping validity\n";
   if (DeclaratorInfo.isInvalidType())
     return true;
 
-  return Actions.ActOnTypeName(getCurScope(), DeclaratorInfo);
+  std::cout << "act on type name!\n";
+  auto ret = Actions.ActOnTypeName(getCurScope(), DeclaratorInfo);
+  std::cout << "return from parse type name\n";
+  return ret;
 }
 
 /// Normalizes an attribute name by dropping prefixed and suffixed __.
@@ -2503,6 +2514,7 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
     DS.ClearStorageClassSpecs();
   }
 
+  std::cout << "issues in parsing specifier qualifier list\n";
   // Issue diagnostic and remove function specifier if present.
   if (Specs & DeclSpec::PQ_FunctionSpecifier) {
     if (DS.isInlineSpecified())
@@ -2513,6 +2525,7 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
       Diag(DS.getExplicitSpecLoc(), diag::err_typename_invalid_functionspec);
     DS.ClearFunctionSpecs();
   }
+  std::cout << "<< issues in parsing specifier qualifier list\n";
 
   // Issue diagnostic and remove constexpr specifier if present.
   if (DS.hasConstexprSpecifier() && DSC != DeclSpecContext::DSC_condition) {
@@ -2520,6 +2533,7 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
         << DS.getConstexprSpecifier();
     DS.ClearConstexprSpec();
   }
+  std::cout << "return parse specifier qualifier list\n";
 }
 
 /// isValidAfterIdentifierInDeclaratorAfterDeclSpec - Return true if the
@@ -3294,12 +3308,21 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       // typedef-name
     case tok::kw___super:
     case tok::kw_decltype:
+      std::cout << "case: decltype\n";
     case tok::identifier: {
       // This identifier can only be a typedef name if we haven't already seen
       // a type-specifier.  Without this check we misparse:
       //  typedef int X; struct Y { short X; };  as 'short int'.
+
+      std::cout << "token: " << Tok.getName() << "\n";
+      Tok.getLocation().dump(getActions().getSourceManager());
+      Tok.getAnnotationRange().dump(getActions().getSourceManager());
+
       if (DS.hasTypeSpecifier())
+      {
+        std::cout << "Has type specifier\n";
         goto DoneWithDeclSpec;
+      }
 
       // If the token is an identifier named "__declspec" and Microsoft
       // extensions are not enabled, it is likely that there will be cascading
@@ -3334,7 +3357,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           goto DoneWithDeclSpec;
         }
         if (!Tok.is(tok::identifier))
+        {
+          std::cout << "not identifier, continue\n";
           continue;
+        }
       }
 
       // Check for need to substitute AltiVec keyword tokens.
@@ -3367,6 +3393,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           isConstructorDeclarator(/*Unqualified*/true))
         goto DoneWithDeclSpec;
 
+      std::cout << "actions get type name\n";
       ParsedType TypeRep = Actions.getTypeName(
           *Tok.getIdentifierInfo(), Tok.getLocation(), getCurScope(), nullptr,
           false, false, nullptr, false, false,
@@ -3901,6 +3928,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
     case tok::annot_decltype:
       ParseDecltypeSpecifier(DS);
+      std::cout << "case: annot_decltype\n";
+      continue;
+
+    case tok::kw_reflexpr:
+      ParseReflexprSpecifier(DS);
       continue;
 
     case tok::annot_pragma_pack:
@@ -5522,6 +5554,7 @@ static bool isPipeDeclerator(const Declarator &D) {
 ///         '::'[opt] nested-name-specifier '*' cv-qualifier-seq[opt]
 void Parser::ParseDeclaratorInternal(Declarator &D,
                                      DirectDeclParseFunction DirectDeclParser) {
+  std::cout << "parse declarator internal\n";
   if (Diags.hasAllExtensionsSilenced())
     D.setExtension();
 
@@ -5533,13 +5566,27 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
        (Tok.is(tok::identifier) &&
         (NextToken().is(tok::coloncolon) || NextToken().is(tok::less))) ||
        Tok.is(tok::annot_cxxscope))) {
+
     bool EnteringContext =
         D.getContext() == DeclaratorContext::FileContext ||
         D.getContext() == DeclaratorContext::MemberContext;
     CXXScopeSpec SS;
     ParseOptionalCXXScopeSpecifier(SS, nullptr, EnteringContext);
 
+    SS.getRange().dump(getActions().getSourceManager());
+
+    if (SS.getScopeRep())
+    {
+      std::cout << "scope rep is valid\n";
+      SS.getScopeRep()->dump();
+    }
+    else
+    {
+      std::cout << "scope rep is null\n";
+    }
+
     if (SS.isNotEmpty()) {
+      std::cout << "not empty!\n";
       if (Tok.isNot(tok::star)) {
         // The scope spec really belongs to the direct-declarator.
         if (D.mayHaveIdentifier())
@@ -5569,25 +5616,35 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                     /* Don't replace range end. */ SourceLocation());
       return;
     }
+    std::cout << "it was indeed empty!\n";
   }
 
   tok::TokenKind Kind = Tok.getKind();
 
   if (D.getDeclSpec().isTypeSpecPipe() && !isPipeDeclerator(D)) {
+    std::cout << "is something: " << D.getDeclSpec().isTypeSpecPipe() << " && " << !isPipeDeclerator(D) << "\n";
     DeclSpec DS(AttrFactory);
     ParseTypeQualifierListOpt(DS);
 
     D.AddTypeInfo(
         DeclaratorChunk::getPipe(DS.getTypeQualifiers(), DS.getPipeLoc()),
         std::move(DS.getAttributes()), SourceLocation());
+    std::cout << "Name: ";
+    D.getName().getSourceRange().dump(getActions().getSourceManager());
   }
 
+  std::cout << "made it here?\n";
   // Not a pointer, C++ reference, or block.
   if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
     if (DirectDeclParser)
+    {
+      std::cout << "Direct decl parser!\n";
       (this->*DirectDeclParser)(D);
+    }
+    D.getName().getSourceRange().dump(getActions().getSourceManager());
     return;
   }
+  std::cout << "and made it here?\n";
 
   // Otherwise, '*' -> pointer, '^' -> block, '&' -> lvalue reference,
   // '&&' -> rvalue reference

@@ -2622,6 +2622,7 @@ private:
 
   void ParseTypeofSpecifier(DeclSpec &DS);
   SourceLocation ParseDecltypeSpecifier(DeclSpec &DS);
+  SourceLocation ParseReflexprSpecifier(DeclSpec &DS);
   void AnnotateExistingDecltypeSpecifier(const DeclSpec &DS,
                                          SourceLocation StartLoc,
                                          SourceLocation EndLoc);

@@ -35,6 +35,8 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#include <iostream>
+
 namespace clang {
   class ASTContext;
   class CXXRecordDecl;
@@ -299,6 +301,7 @@ public:
   static const TST TST_typeofExpr = clang::TST_typeofExpr;
   static const TST TST_decltype = clang::TST_decltype;
   static const TST TST_decltype_auto = clang::TST_decltype_auto;
+  static const TST TST_reflexpr = clang::TST_reflexpr;
   static const TST TST_underlyingType = clang::TST_underlyingType;
   static const TST TST_auto = clang::TST_auto;
   static const TST TST_auto_type = clang::TST_auto_type;
@@ -610,6 +613,11 @@ public:
 
   /// Return true if any type-specifier has been found.
   bool hasTypeSpecifier() const {
+    std::cout << "has type specifier: "
+              << (getTypeSpecType() != DeclSpec::TST_unspecified) << " "
+              << (getTypeSpecWidth() != DeclSpec::TSW_unspecified) << " "
+              << (getTypeSpecComplex() != DeclSpec::TSC_unspecified) << " "
+              << (getTypeSpecSign() != DeclSpec::TSS_unspecified) << "\n";
     return getTypeSpecType() != DeclSpec::TST_unspecified ||
            getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
            getTypeSpecComplex() != DeclSpec::TSC_unspecified ||

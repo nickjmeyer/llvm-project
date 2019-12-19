@@ -26,6 +26,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/TimeProfiler.h"
 
+#include <iostream>
+
 using namespace clang;
 
 /// ParseNamespace - We know that the current token is a namespace keyword. This
@@ -494,6 +496,7 @@ Parser::ParseUsingDirectiveOrDeclaration(DeclaratorContext Context,
     return Actions.ConvertDeclToDeclGroup(UsingDir);
   }
 
+  std::cout << "This!\n";
   // Otherwise, it must be a using-declaration or an alias-declaration.
 
   // Using declarations can't have attributes.
@@ -684,6 +687,7 @@ Parser::ParseUsingDeclaration(DeclaratorContext Context,
 
   // Maybe this is an alias-declaration.
   if (Tok.is(tok::equal)) {
+    std::cout << "equal!\n";
     if (InvalidDeclarator) {
       SkipUntil(tok::semi);
       return nullptr;
@@ -703,7 +707,9 @@ Parser::ParseUsingDeclaration(DeclaratorContext Context,
     Decl *DeclFromDeclSpec = nullptr;
     Decl *AD = ParseAliasDeclarationAfterDeclarator(
         TemplateInfo, UsingLoc, D, DeclEnd, AS, Attrs, &DeclFromDeclSpec);
-    return Actions.ConvertDeclToDeclGroup(AD, DeclFromDeclSpec);
+    auto ret = Actions.ConvertDeclToDeclGroup(AD, DeclFromDeclSpec);
+    std::cout << "converting to decl group\n";
+    return ret;
   }
 
   // C++11 attributes are not allowed on a using-declaration, but GNU ones
@@ -778,6 +784,7 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
     const ParsedTemplateInfo &TemplateInfo, SourceLocation UsingLoc,
     UsingDeclarator &D, SourceLocation &DeclEnd, AccessSpecifier AS,
     ParsedAttributes &Attrs, Decl **OwnedType) {
+  std::cout << "starting alias parsing!\n";
   if (ExpectAndConsume(tok::equal)) {
     SkipUntil(tok::semi);
     return nullptr;
@@ -786,6 +793,8 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
   Diag(Tok.getLocation(), getLangOpts().CPlusPlus11 ?
        diag::warn_cxx98_compat_alias_declaration :
        diag::ext_alias_declaration);
+
+  std::cout << "figuring out spec kind\n";
 
   // Type alias templates cannot be specialized.
   int SpecKind = -1;
@@ -809,6 +818,8 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
     return nullptr;
   }
 
+  std::cout << "spec kind : " << SpecKind << "\n";
+
   // Name must be an identifier.
   if (D.Name.getKind() != UnqualifiedIdKind::IK_Identifier) {
     Diag(D.Name.StartLocation, diag::err_alias_declaration_not_identifier);
@@ -816,23 +827,35 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
     SkipUntil(tok::semi);
     return nullptr;
   } else if (D.TypenameLoc.isValid())
+  {
     Diag(D.TypenameLoc, diag::err_alias_declaration_not_identifier)
         << FixItHint::CreateRemoval(SourceRange(
                D.TypenameLoc,
                D.SS.isNotEmpty() ? D.SS.getEndLoc() : D.TypenameLoc));
+    std::cout << "typename loc is valid\n";
+  }
   else if (D.SS.isNotEmpty())
+  {
     Diag(D.SS.getBeginLoc(), diag::err_alias_declaration_not_identifier)
       << FixItHint::CreateRemoval(D.SS.getRange());
+
+    std::cout << "is not empty\n";
+  }
   if (D.EllipsisLoc.isValid())
+  {
     Diag(D.EllipsisLoc, diag::err_alias_declaration_pack_expansion)
       << FixItHint::CreateRemoval(SourceRange(D.EllipsisLoc));
+    std::cout << "is valid\n";
+  }
 
   Decl *DeclFromDeclSpec = nullptr;
+  std::cout << "parsing type name\n";
   TypeResult TypeAlias = ParseTypeName(
       nullptr,
       TemplateInfo.Kind ? DeclaratorContext::AliasTemplateContext
                         : DeclaratorContext::AliasDeclContext,
       AS, &DeclFromDeclSpec, &Attrs);
+  std::cout << "parsed type name!\n";
   if (OwnedType)
     *OwnedType = DeclFromDeclSpec;
 
@@ -847,9 +870,14 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
   MultiTemplateParamsArg TemplateParamsArg(
     TemplateParams ? TemplateParams->data() : nullptr,
     TemplateParams ? TemplateParams->size() : 0);
-  return Actions.ActOnAliasDeclaration(getCurScope(), AS, TemplateParamsArg,
+  std::cout << "act on alias declaration\n";
+  auto ret = Actions.ActOnAliasDeclaration(getCurScope(), AS, TemplateParamsArg,
                                        UsingLoc, D.Name, Attrs, TypeAlias,
                                        DeclFromDeclSpec);
+  std::cout << "act on alias declaration here?\n";
+  std::cout << "result from type name: \n";
+  TypeAlias.get().get()->dump();
+  return ret;
 }
 
 /// ParseStaticAssertDeclaration - Parse C++0x or C11 static_assert-declaration.
@@ -1036,6 +1064,75 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
   return EndLoc;
 }
 
+SourceLocation Parser::ParseReflexprSpecifier(DeclSpec &SP)
+{
+  std::cout << ">> parsing reflexpr specifier\n";
+
+  SourceLocation StartLoc = Tok.getLocation();
+
+  SourceLocation OpLoc = ConsumeToken();
+
+  std::cout << ">> tok location\n";
+  Tok.getLocation().dump(getActions().getSourceManager());
+  std::cout << "<< tok location\n";
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  SourceLocation LParenLoc = T.getOpenLocation();
+  std::cout << ">> consume parens\n";
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         "reflexpr", tok::r_paren))
+  {
+    std::cout << "<< consume parens failed\n";
+      SP.SetTypeSpecError();
+      return T.getOpenLocation() == Tok.getLocation() ?
+             StartLoc : T.getOpenLocation();
+  }
+  std::cout << "<< consume parens success\n";
+
+  std::cout << "Type spec type: "
+            << SP.getTypeSpecType()
+            << " == ("
+            << TST_reflexpr
+            << ", "
+            << TST_decltype
+            << ")\n";
+
+
+  const SourceLocation EndLoc{T.getCloseLocation()};
+
+  auto range = T.getRange();
+  TypeResult Ty = ParseTypeName(&range);
+
+  T.consumeClose();
+  SourceLocation RParenLoc = T.getCloseLocation();
+  Declarator DeclaratorInfo(SP, DeclaratorContext::TypeNameContext);
+  std::cout << "act on type name\n";
+  ParsedType Result = Actions.ActOnTypeName(getCurScope(), DeclaratorInfo).get();
+
+  const char *PrevSpec = nullptr;
+  unsigned DiagID;
+  const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
+  std::cout << "result: \n";
+  Result.get()->dump();
+  // if (Result.get() && SP.SetTypeSpecType(DeclSpec::TST_reflexpr,
+  //                                        StartLoc,
+  //                                        PrevSpec,
+  //                                        DiagID,
+  //                                        Result.get(),
+  //                                        Policy))
+  // {
+  //   Diag(StartLoc, diag::err_expected) << "Not sure what error to put here.";
+  // }
+
+  // SP.setTypeofParensRange(T.getRange());
+  // SP.SetRangeEnd(T.getCloseLocation());
+
+  // std::cout << "rep as type: \n" << SP.getRepAsType().get().getAsString(Policy) << "\n";
+
+  std::cout << "<< parsing reflexpr specifier\n";
+  return EndLoc;
+}
+
 void Parser::AnnotateExistingDecltypeSpecifier(const DeclSpec& DS,
                                                SourceLocation StartLoc,
                                                SourceLocation EndLoc) {
@@ -1134,6 +1231,12 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
 
     Declarator DeclaratorInfo(DS, DeclaratorContext::TypeNameContext);
     return Actions.ActOnTypeName(getCurScope(), DeclaratorInfo);
+  }
+
+  if (Tok.is(tok::kw_reflexpr))
+  {
+    DeclSpec DS(AttrFactory);
+    ParseReflexprSpecifier(DS);
   }
 
   // Check whether we have a template-id that names a type.

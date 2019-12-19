@@ -362,6 +362,7 @@ bool Declarator::isDeclarationOfFunction() const {
 #include "clang/Basic/OpenCLImageTypes.def"
       return false;
 
+    case TST_reflexpr:
     case TST_decltype_auto:
       // This must have an initializer, so can't be a function declaration,
       // even if the initializer has function type.
@@ -551,6 +552,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_auto:        return "auto";
   case DeclSpec::TST_auto_type:   return "__auto_type";
   case DeclSpec::TST_decltype:    return "(decltype)";
+  case DeclSpec::TST_reflexpr:    return "(reflexpr)";
   case DeclSpec::TST_decltype_auto: return "decltype(auto)";
   case DeclSpec::TST_underlyingType: return "__underlying_type";
   case DeclSpec::TST_unknown_anytype: return "__unknown_anytype";
