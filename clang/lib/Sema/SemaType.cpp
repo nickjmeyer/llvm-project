@@ -37,6 +37,8 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#include <iostream>
+
 using namespace clang;
 
 enum TypeDiagSelector {
@@ -5449,6 +5451,7 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   // Determine the type of the declarator. Not all forms of declarator
   // have a type.
 
+  std::cout << "get type for declarator\n";
   TypeProcessingState state(*this, D);
 
   TypeSourceInfo *ReturnTypeInfo = nullptr;
@@ -5456,7 +5459,10 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   if (D.isPrototypeContext() && getLangOpts().ObjCAutoRefCount)
     inferARCWriteback(state, T);
 
-  return GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
+  std::cout << "get full type for declarator done\n";
+  auto ret = GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
+  std::cout << "get type for declarator done\n";
+  return ret;
 }
 
 static void transferARCOwnershipToDeclSpec(Sema &S,
