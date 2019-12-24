@@ -1618,6 +1618,11 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     }
     break;
 
+  case DeclSpec::TST_reflexpr:
+    Result = S.GetTypeFromParser(DS.getRepAsType());
+    assert(!Result.isNull() && "Didn't get a type for reflexpr?");
+    break;
+
   case DeclSpec::TST_auto:
     if (DS.isConstrainedAuto()) {
       Result = ConvertConstrainedAutoDeclSpecToType(S, DS,
@@ -3069,7 +3074,9 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
   case UnqualifiedIdKind::IK_Identifier:
   case UnqualifiedIdKind::IK_LiteralOperatorId:
   case UnqualifiedIdKind::IK_TemplateId:
+    std::cout << "convert decl spec to type\n";
     T = ConvertDeclSpecToType(state);
+    std::cout << "convert decl spec to type done\n";
 
     if (!D.isInvalidType() && D.getDeclSpec().isTypeSpecOwned()) {
       OwnedTagDecl = cast<TagDecl>(D.getDeclSpec().getRepAsDecl());
@@ -3102,11 +3109,14 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
     break;
   }
 
+  std::cout << "after switch\n";
+
   if (!D.getAttributes().empty())
     distributeTypeAttrsFromDeclarator(state, T);
 
   // C++11 [dcl.spec.auto]p5: reject 'auto' if it is not in an allowed context.
   if (DeducedType *Deduced = T->getContainedDeducedType()) {
+    std::cout << "contained decuded type\n";
     AutoType *Auto = dyn_cast<AutoType>(Deduced);
     int Error = -1;
 
@@ -3308,6 +3318,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
           << AutoRange;
     }
   }
+  std::cout << "done with if\n";
 
   if (SemaRef.getLangOpts().CPlusPlus &&
       OwnedTagDecl && OwnedTagDecl->isCompleteDefinition()) {
@@ -5455,9 +5466,14 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   TypeProcessingState state(*this, D);
 
   TypeSourceInfo *ReturnTypeInfo = nullptr;
+  std::cout << "get decl spec type for declarator\n";
   QualType T = GetDeclSpecTypeForDeclarator(state, ReturnTypeInfo);
+  std::cout << "conditional\n";
   if (D.isPrototypeContext() && getLangOpts().ObjCAutoRefCount)
+  {
+  std::cout << "infer arc write back\n";
     inferARCWriteback(state, T);
+  }
 
   std::cout << "get full type for declarator done\n";
   auto ret = GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
