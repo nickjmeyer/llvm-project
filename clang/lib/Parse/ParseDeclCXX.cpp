@@ -708,6 +708,8 @@ Parser::ParseUsingDeclaration(DeclaratorContext Context,
     Decl *AD = ParseAliasDeclarationAfterDeclarator(
         TemplateInfo, UsingLoc, D, DeclEnd, AS, Attrs, &DeclFromDeclSpec);
     auto ret = Actions.ConvertDeclToDeclGroup(AD, DeclFromDeclSpec);
+    std::cout << "dumping decl group\n";
+    // ret.get().getSingleDecl()->dump();
     std::cout << "converting to decl group\n";
     return ret;
   }
@@ -875,8 +877,16 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
                                        UsingLoc, D.Name, Attrs, TypeAlias,
                                        DeclFromDeclSpec);
   std::cout << "act on alias declaration here?\n";
+  std::cout << "type identifier: \n";
   std::cout << "result from type name: \n";
-  TypeAlias.get().get()->dump();
+  // std::cout << "TypeAlias.get().get().operator->(): "
+  //           << static_cast<bool>(TypeAlias.get().get().operator->())
+  //           << " "
+  //           << static_cast<const void*>(TypeAlias.get().get().operator->())
+  //           << "\n";
+  // std::cout << "name: " << TypeAlias.get().get()->getTypeClassName() << "\n";
+  // std::cout << "name: " << TypeAlias.get().get().getAsString() << "\n";
+  std::cout << "type alias printed\n";
   return ret;
 }
 
@@ -1064,73 +1074,51 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
   return EndLoc;
 }
 
-SourceLocation Parser::ParseReflexprSpecifier(DeclSpec &SP)
+void Parser::ParseReflexprSpecifier(DeclSpec &SP)
 {
   std::cout << ">> parsing reflexpr specifier\n";
 
-  SourceLocation StartLoc = Tok.getLocation();
-
-  SourceLocation OpLoc = ConsumeToken();
-
-  std::cout << ">> tok location\n";
-  Tok.getLocation().dump(getActions().getSourceManager());
-  std::cout << "<< tok location\n";
+  SourceLocation StartLoc = ConsumeToken();
 
   BalancedDelimiterTracker T(*this, tok::l_paren);
-  SourceLocation LParenLoc = T.getOpenLocation();
-  std::cout << ">> consume parens\n";
   if (T.expectAndConsume(diag::err_expected_lparen_after,
                          "reflexpr", tok::r_paren))
   {
-    std::cout << "<< consume parens failed\n";
       SP.SetTypeSpecError();
-      return T.getOpenLocation() == Tok.getLocation() ?
-             StartLoc : T.getOpenLocation();
+      return;
   }
-  std::cout << "<< consume parens success\n";
-
-  std::cout << "Type spec type: "
-            << SP.getTypeSpecType()
-            << " == ("
-            << TST_reflexpr
-            << ", "
-            << TST_decltype
-            << ")\n";
-
-
-  const SourceLocation EndLoc{T.getCloseLocation()};
 
   auto range = T.getRange();
-  TypeResult Ty = ParseTypeName(&range);
+  TypeResult Result = ParseTypeName(&range);
 
+  if (Result.isInvalid()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return;
+  }
+
+  // Match the ')'
   T.consumeClose();
-  SourceLocation RParenLoc = T.getCloseLocation();
-  Declarator DeclaratorInfo(SP, DeclaratorContext::TypeNameContext);
-  std::cout << "act on type name\n";
-  ParsedType Result = Actions.ActOnTypeName(getCurScope(), DeclaratorInfo).get();
+  if (T.getCloseLocation().isInvalid())
+  {
+    return;
+  }
 
   const char *PrevSpec = nullptr;
   unsigned DiagID;
   const PrintingPolicy &Policy = Actions.getASTContext().getPrintingPolicy();
-  std::cout << "result: \n";
-  Result.get()->dump();
-  // if (Result.get() && SP.SetTypeSpecType(DeclSpec::TST_reflexpr,
-  //                                        StartLoc,
-  //                                        PrevSpec,
-  //                                        DiagID,
-  //                                        Result.get(),
-  //                                        Policy))
-  // {
-  //   Diag(StartLoc, diag::err_expected) << "Not sure what error to put here.";
-  // }
+  if (Result.get() && SP.SetTypeSpecType(DeclSpec::TST_reflexpr,
+                                         StartLoc,
+                                         PrevSpec,
+                                         DiagID,
+                                         Result.get(),
+                                         Policy))
+  {
+    Diag(StartLoc, diag::err_expected) << "Not sure what error to put here.";
+  }
 
-  // SP.setTypeofParensRange(T.getRange());
-  // SP.SetRangeEnd(T.getCloseLocation());
-
-  // std::cout << "rep as type: \n" << SP.getRepAsType().get().getAsString(Policy) << "\n";
+  SP.setTypeofParensRange(T.getRange());
 
   std::cout << "<< parsing reflexpr specifier\n";
-  return EndLoc;
 }
 
 void Parser::AnnotateExistingDecltypeSpecifier(const DeclSpec& DS,
