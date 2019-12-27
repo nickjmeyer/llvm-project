@@ -1293,6 +1293,7 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
 
   for (; S && !isNamespaceOrTranslationUnitScope(S); S = S->getParent()) {
     DeclContext *Ctx = S->getEntity();
+
     bool SearchNamespaceScope = true;
     // Check whether the IdResolver has anything in this scope.
     for (; I != IEnd && S->isDeclScope(*I); ++I) {
@@ -1321,6 +1322,7 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
         R.addDecl(ND);
       }
     }
+
     if (!SearchNamespaceScope) {
       R.resolveKind();
       if (S->isClassScope())
@@ -1348,7 +1350,6 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
       Ctx = OutsideOfTemplateParamDC;
       OutsideOfTemplateParamDC = nullptr;
     }
-
     if (Ctx) {
       DeclContext *OuterCtx;
       bool SearchAfterTemplateScope;
@@ -1374,7 +1375,8 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
               if (ObjCInterfaceDecl *Class = Method->getClassInterface()) {
                 ObjCInterfaceDecl *ClassDeclared;
                 if (ObjCIvarDecl *Ivar = Class->lookupInstanceVariable(
-                                                 Name.getAsIdentifierInfo(),
+
+                                             Name.getAsIdentifierInfo(),
                                                              ClassDeclared)) {
                   if (NamedDecl *ND = R.getAcceptableDecl(Ivar)) {
                     R.addDecl(ND);
@@ -1436,11 +1438,15 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
 
   // Stop if we ran out of scopes.
   // FIXME:  This really, really shouldn't be happening.
+  std::cout << "checking scope\n";
   if (!S) return false;
 
+  std::cout << "checking kind\n";
   // If we are looking for members, no need to look into global/namespace scope.
   if (NameKind == LookupMemberName)
     return false;
+
+  std::cout << "checking here\n";
 
   // Collect UsingDirectiveDecls in all scopes, and recursively all
   // nominated namespaces by those using-directives.
@@ -1463,8 +1469,11 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
   // context as well as walking through the scopes.
   for (; S; S = S->getParent()) {
     // Check whether the IdResolver has anything in this scope.
+    std::cout << "scope\n";
+    S->dump();
     bool Found = false;
     for (; I != IEnd && S->isDeclScope(*I); ++I) {
+      std::cout << "I loop\n";
       if (NamedDecl *ND = R.getAcceptableDecl(*I)) {
         // We found something.  Look for anything else in our scope
         // with this same name and in an acceptable identifier
@@ -1475,6 +1484,7 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
       }
     }
 
+    std::cout << "checking found and template param scope\n";
     if (Found && S->isTemplateParamScope()) {
       R.resolveKind();
       return true;
@@ -1492,6 +1502,7 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
       OutsideOfTemplateParamDC = nullptr;
     }
 
+    std::cout << "checking context\n";
     if (Ctx) {
       DeclContext *OuterCtx;
       bool SearchAfterTemplateScope;
@@ -1503,6 +1514,10 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
         // We do not directly look into transparent contexts, since
         // those entities will be found in the nearest enclosing
         // non-transparent context.
+
+        std::cout << "ctx dumping lookups\n";
+        Ctx->dumpLookups();
+
         if (Ctx->isTransparentContext())
           continue;
 
@@ -1945,11 +1960,16 @@ NamedDecl *LookupResult::getAcceptableDeclSlow(NamedDecl *D) const {
 /// @returns \c true if lookup succeeded and false otherwise.
 bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
   DeclarationName Name = R.getLookupName();
-  if (!Name) return false;
+  if (!Name)
+  {
+    std::cout << "could not get name\n";
+    return false;
+  }
 
   LookupNameKind NameKind = R.getLookupKind();
 
   if (!getLangOpts().CPlusPlus) {
+    std::cout << "this shouldn't print\n";
     // Unqualified name lookup in C/Objective-C is purely lexical, so
     // search in the declarations attached to the name.
     if (NameKind == Sema::LookupRedeclarationWithLinkage) {
@@ -2036,6 +2056,7 @@ bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
       }
   } else {
     // Perform C++ unqualified name lookup.
+    std::cout << "cxx lookup name\n";
     if (CppLookupName(R, S))
       return true;
   }

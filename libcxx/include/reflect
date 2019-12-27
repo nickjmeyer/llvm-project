@@ -1,5 +1,7 @@
 namespace std
 {
 template <class T>
-struct reflect;
-}
+struct reflect
+{
+};
+}  // namespace std

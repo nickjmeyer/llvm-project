@@ -6,11 +6,14 @@ struct A
 {
 };
 
-using A_R = reflexpr(A const);
+using A_R = reflexpr(A);
+using A_R_T = std::reflect<A>;
 
-template <class A, class B>
-inline constexpr bool is_same_v{false};
-template <class A>
-inline constexpr bool is_same_v<A, A>{true};
+// template <class A, class B>
+// inline constexpr bool is_same_v{false};
+// template <class A>
+// inline constexpr bool is_same_v<A, A>{true};
 
-static_assert(is_same_v<A_R, const A>);
+// static_assert(is_same_v<A_R, A_R_T>);
+// static_assert(!is_same_v<A_R, A_R>);
+// static_assert(!is_same_v<A_R_T, A_R_T>);
