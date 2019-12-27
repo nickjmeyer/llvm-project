@@ -1596,9 +1596,143 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     }
     break;
 
-  case DeclSpec::TST_reflexpr:
-    Result = S.GetTypeFromParser(DS.getRepAsType());
-    assert(!Result.isNull() && "Didn't get a type for reflexpr?");
+    case DeclSpec::TST_reflexpr:
+      {
+        Result = S.GetTypeFromParser(DS.getRepAsType()); std::cout << "dump reflexpr type\n";
+        std::cout << "dump qualified reflexpr type\n";
+        Result->dump();
+
+        auto& SM = S.getSourceManager();
+        auto& FM = SM.getFileManager();
+
+        SM.dump();
+
+        std::cout << "Dump all types\n";
+        int i {0};
+        for (Type* t : Context.getTypes())
+        {
+          std::cout << "Type " << i++ << "\n";
+          t->dump();
+          std::cout << "name: " << t->getTypeClassName() << "\n";
+          auto* cxx_record_decl = t->getAsCXXRecordDecl();
+          if (cxx_record_decl)
+          {
+            std::cout << "cxx record decl\n";
+            cxx_record_decl->dump();
+          }
+          else
+          {
+            std::cout << "invalid cxx record decl\n";
+          }
+        }
+        std::cout << "Dup all types done\n";
+
+        auto reflect_file = FM.getFile("/home/nick/repos/llvm-project/libcxx/include/reflect");
+        assert(static_cast<bool>(reflect_file) && "Is <reflect> included?");
+        std::cout << "file is valid: " << reflect_file.get()->isValid() << "\n";
+        std::cout << "path to file: \n"
+                  << reflect_file.get()->tryGetRealPathName().str() << "\n";
+        clang::LookupResult lr(S,
+                               clang::DeclarationName(
+                                   S.getPreprocessor().getIdentifierInfo("reflect")),
+                               SM.getLocForEndOfFile(SM.translateFile(reflect_file.get())),
+                               clang::Sema::LookupNameKind::LookupAnyName);
+        // lr.setTemplateNameLookup(true);
+
+        NamespaceDecl* std_namespace = S.getStdNamespace();
+        std::cout << "std namespace: " << static_cast<void*>(std_namespace) << "\n";
+        std::cout << "push context\n";
+        Scope* current_scope = S.getCurScope();
+        S.PushDeclContext(current_scope, std_namespace);
+        std::cout << "lookup\n";
+        auto lookup_success = S.LookupName(lr, S.getCurScope());
+        std::cout << "pop context\n";
+        S.PopDeclContext();
+        assert(lookup_success
+               && "name lookup failed for std::reflect");
+        std::cout << "lookup success: " << lookup_success << "\n";
+        std::cout << "lookup kind: " << lr.getResultKind() << "\n";
+        NamedDecl* nd = lr.getFoundDecl();
+        std::cout << "named decl name: " << nd->getNameAsString() << "\n";
+        ClassTemplateDecl* ctd = lr.template getAsSingle<ClassTemplateDecl>();
+        std::cout << "class template decl name: " << ctd->getNameAsString() << "\n";
+        ctd->dump();
+
+        std::cout << "template arg\n";
+        TemplateArgument ta(Result);
+        std::cout << "template arg array\n";
+        ArrayRef<TemplateArgument> args(ta);
+        std::cout << "template specialization type\n";
+
+        // NestedNameSpecifier* prefix{nullptr};
+        // NestedNameSpecifier* std_nested_name =
+        //     NestedNameSpecifier::Create(Context,
+        //                                 prefix,
+        //                                 std_namespace);
+
+        std::cout << "consruct template name\n";
+        TemplateName tn{ctd};
+        // std::cout << "qualified template name\n";
+        // QualifiedTemplateName *qtn{tn.getAsQualifiedTemplateName()};
+        // std::cout << "qtn: " << static_cast<void*>(qtn) << "\n";
+
+        // TemplateName template_name = Context.getQualifiedTemplateName(
+        //     std_nested_name, false, ctd);
+
+        // std::cout << "template_name\n";
+        // template_name.dump();
+
+        std::cout << "get template specialization\n";
+        Result = Context.getTemplateSpecializationType(
+            tn,
+            args);
+
+        std::cout << "dumping template specialization\n";
+        Result->dump();
+
+        // std::cout << "dump ln\n";
+        // lr.dump();
+        // std::cout << "\ndone dumping ln\n";
+        // CXXRecordDecl* crd = lr.getNamingClass();
+        // assert(crd != nullptr && "crd is null");
+        // ClassTemplateDecl* ctd = crd->getDescribedClassTemplate();
+        // assert(ctd != nullptr && "ctd is null");
+
+        // auto& PP = S.getPreprocessor();
+        // auto sloc = CI.getSourceManager().getLocForEndOfFile(CI.getSourceManager().translateFile(CI.getFileManager().getFile("main.cpp")));
+
+        // auto std_namespace = PP.getIdentifierInfo("std::");
+        // auto reflect_identifier = PP.getIdentifierInfo("reflect");
+
+        // auto nns = NestedNameSpecifier::Create(Context, std_namespace);
+
+        // auto dtn = Context.getDependentTemplateName(nns, reflect_identifier);
+        // TemplateArgument ta(Result);
+        // ArrayRef<TemplateArgument> args(ta);
+        // Result = Context.getTemplateSpecializationType(dtn,
+        //                                                args
+        //                                                );
+
+        // Result->dump();
+        // std::cout << "ii name: " << ii->getName().str() << "\n";
+        // std::cout << "dtn dump\n";
+        // dtn.dump();
+        // std::cout << "\n";
+
+        // std::cout << "is const: " << Result.isConstQualified() << "\n";
+        // Result = S.BuildQualifiedType(Result,
+        //                               Result.getBeginLoc(),
+        //                               DS.getTypeQualifiers());
+        // std::cout << "dump reflexpr wrapped type\n";
+        // Result->dump();
+
+        // Result.addConst();
+        // std::cout << "dumping with const\n";
+        // Result->dump();
+
+
+        assert(!Result.isNull() && "Didn't get a type for reflexpr?");
+      }
     break;
 
   case DeclSpec::TST_auto:

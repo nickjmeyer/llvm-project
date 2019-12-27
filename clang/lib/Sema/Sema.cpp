@@ -1626,10 +1626,11 @@ bool Sema::findMacroSpelling(SourceLocation &locref, StringRef name) {
 /// \returns The scope corresponding to the given declaraion context, or NULL
 /// if no such scope is open.
 Scope *Sema::getScopeForContext(DeclContext *Ctx) {
-
+  std::cout << "getting scope!\n";
   if (!Ctx)
     return nullptr;
 
+  std::cout << "looping!\n";
   Ctx = Ctx->getPrimaryContext();
   for (Scope *S = getCurScope(); S; S = S->getParent()) {
     // Ignore scopes that cannot have declarations. This is important for
@@ -1640,6 +1641,7 @@ Scope *Sema::getScopeForContext(DeclContext *Ctx) {
           return S;
   }
 
+  std::cout << "not found!\n";
   return nullptr;
 }
 
