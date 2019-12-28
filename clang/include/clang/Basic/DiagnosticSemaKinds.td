@@ -10261,4 +10261,6 @@ def warn_sycl_kernel_return_type : Warning<
   "function template with 'sycl_kernel' attribute must have a 'void' return type">,
   InGroup<IgnoredAttributes>;
 
+// Reflection
+def err_reflect_template_not_found : Error<"Cannot find std::reflect template declaration.  Are you missing `#include <reflect>`?">;
 } // end of sema component.

@@ -613,11 +613,6 @@ public:
 
   /// Return true if any type-specifier has been found.
   bool hasTypeSpecifier() const {
-    std::cout << "has type specifier: "
-              << (getTypeSpecType() != DeclSpec::TST_unspecified) << " "
-              << (getTypeSpecWidth() != DeclSpec::TSW_unspecified) << " "
-              << (getTypeSpecComplex() != DeclSpec::TSC_unspecified) << " "
-              << (getTypeSpecSign() != DeclSpec::TSS_unspecified) << "\n";
     return getTypeSpecType() != DeclSpec::TST_unspecified ||
            getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
            getTypeSpecComplex() != DeclSpec::TSC_unspecified ||

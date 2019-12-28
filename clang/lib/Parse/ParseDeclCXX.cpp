@@ -496,7 +496,6 @@ Parser::ParseUsingDirectiveOrDeclaration(DeclaratorContext Context,
     return Actions.ConvertDeclToDeclGroup(UsingDir);
   }
 
-  std::cout << "This!\n";
   // Otherwise, it must be a using-declaration or an alias-declaration.
 
   // Using declarations can't have attributes.
@@ -687,7 +686,6 @@ Parser::ParseUsingDeclaration(DeclaratorContext Context,
 
   // Maybe this is an alias-declaration.
   if (Tok.is(tok::equal)) {
-    std::cout << "equal!\n";
     if (InvalidDeclarator) {
       SkipUntil(tok::semi);
       return nullptr;
@@ -707,11 +705,7 @@ Parser::ParseUsingDeclaration(DeclaratorContext Context,
     Decl *DeclFromDeclSpec = nullptr;
     Decl *AD = ParseAliasDeclarationAfterDeclarator(
         TemplateInfo, UsingLoc, D, DeclEnd, AS, Attrs, &DeclFromDeclSpec);
-    auto ret = Actions.ConvertDeclToDeclGroup(AD, DeclFromDeclSpec);
-    std::cout << "dumping decl group\n";
-    // ret.get().getSingleDecl()->dump();
-    std::cout << "converting to decl group\n";
-    return ret;
+    return Actions.ConvertDeclToDeclGroup(AD, DeclFromDeclSpec);
   }
 
   // C++11 attributes are not allowed on a using-declaration, but GNU ones
@@ -786,7 +780,6 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
     const ParsedTemplateInfo &TemplateInfo, SourceLocation UsingLoc,
     UsingDeclarator &D, SourceLocation &DeclEnd, AccessSpecifier AS,
     ParsedAttributes &Attrs, Decl **OwnedType) {
-  std::cout << "starting alias parsing!\n";
   if (ExpectAndConsume(tok::equal)) {
     SkipUntil(tok::semi);
     return nullptr;
@@ -795,8 +788,6 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
   Diag(Tok.getLocation(), getLangOpts().CPlusPlus11 ?
        diag::warn_cxx98_compat_alias_declaration :
        diag::ext_alias_declaration);
-
-  std::cout << "figuring out spec kind\n";
 
   // Type alias templates cannot be specialized.
   int SpecKind = -1;
@@ -820,8 +811,6 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
     return nullptr;
   }
 
-  std::cout << "spec kind : " << SpecKind << "\n";
-
   // Name must be an identifier.
   if (D.Name.getKind() != UnqualifiedIdKind::IK_Identifier) {
     Diag(D.Name.StartLocation, diag::err_alias_declaration_not_identifier);
@@ -834,30 +823,24 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
         << FixItHint::CreateRemoval(SourceRange(
                D.TypenameLoc,
                D.SS.isNotEmpty() ? D.SS.getEndLoc() : D.TypenameLoc));
-    std::cout << "typename loc is valid\n";
   }
   else if (D.SS.isNotEmpty())
   {
     Diag(D.SS.getBeginLoc(), diag::err_alias_declaration_not_identifier)
       << FixItHint::CreateRemoval(D.SS.getRange());
-
-    std::cout << "is not empty\n";
   }
   if (D.EllipsisLoc.isValid())
   {
     Diag(D.EllipsisLoc, diag::err_alias_declaration_pack_expansion)
       << FixItHint::CreateRemoval(SourceRange(D.EllipsisLoc));
-    std::cout << "is valid\n";
   }
 
   Decl *DeclFromDeclSpec = nullptr;
-  std::cout << "parsing type name\n";
   TypeResult TypeAlias = ParseTypeName(
       nullptr,
       TemplateInfo.Kind ? DeclaratorContext::AliasTemplateContext
                         : DeclaratorContext::AliasDeclContext,
       AS, &DeclFromDeclSpec, &Attrs);
-  std::cout << "parsed type name!\n";
   if (OwnedType)
     *OwnedType = DeclFromDeclSpec;
 
@@ -872,22 +855,9 @@ Decl *Parser::ParseAliasDeclarationAfterDeclarator(
   MultiTemplateParamsArg TemplateParamsArg(
     TemplateParams ? TemplateParams->data() : nullptr,
     TemplateParams ? TemplateParams->size() : 0);
-  std::cout << "act on alias declaration\n";
-  auto ret = Actions.ActOnAliasDeclaration(getCurScope(), AS, TemplateParamsArg,
+  return Actions.ActOnAliasDeclaration(getCurScope(), AS, TemplateParamsArg,
                                        UsingLoc, D.Name, Attrs, TypeAlias,
                                        DeclFromDeclSpec);
-  std::cout << "act on alias declaration here?\n";
-  std::cout << "type identifier: \n";
-  std::cout << "result from type name: \n";
-  // std::cout << "TypeAlias.get().get().operator->(): "
-  //           << static_cast<bool>(TypeAlias.get().get().operator->())
-  //           << " "
-  //           << static_cast<const void*>(TypeAlias.get().get().operator->())
-  //           << "\n";
-  // std::cout << "name: " << TypeAlias.get().get()->getTypeClassName() << "\n";
-  // std::cout << "name: " << TypeAlias.get().get().getAsString() << "\n";
-  std::cout << "type alias printed\n";
-  return ret;
 }
 
 /// ParseStaticAssertDeclaration - Parse C++0x or C11 static_assert-declaration.
@@ -1076,8 +1046,6 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
 
 void Parser::ParseReflexprSpecifier(DeclSpec &SP)
 {
-  std::cout << ">> parsing reflexpr specifier\n";
-
   SourceLocation StartLoc = ConsumeToken();
 
   BalancedDelimiterTracker T(*this, tok::l_paren);
@@ -1117,8 +1085,6 @@ void Parser::ParseReflexprSpecifier(DeclSpec &SP)
   }
 
   SP.setTypeofParensRange(T.getRange());
-
-  std::cout << "<< parsing reflexpr specifier\n";
 }
 
 void Parser::AnnotateExistingDecltypeSpecifier(const DeclSpec& DS,

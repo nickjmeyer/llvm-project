@@ -12116,10 +12116,8 @@ Decl *Sema::ActOnAliasDeclaration(Scope *S, AccessSpecifier AS,
 
   bool Invalid = false;
   DeclarationNameInfo NameInfo = GetNameFromUnqualifiedId(Name);
-  std::cout << "declaration name info: " << NameInfo.getAsString() << "\n";
   TypeSourceInfo *TInfo = nullptr;
   GetTypeFromParser(Type.get(), &TInfo);
-  TInfo->getType().dump();
 
   if (DiagnoseClassNameShadow(CurContext, NameInfo))
     return nullptr;

@@ -1598,36 +1598,28 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
 
     case DeclSpec::TST_reflexpr:
       {
-        std::cout << "setting the reflexpr type\n";
-        Result = S.GetTypeFromParser(DS.getRepAsType());
-        Result->dump();
+        // Get type inside reflexpr().
+        QualType TemplateArgumentType = S.GetTypeFromParser(DS.getRepAsType());
 
-        auto& SM = S.getSourceManager();
-        auto& FM = SM.getFileManager();
-
-        SM.dump();
-
-        auto reflect_file = FM.getFile("/home/nick/repos/llvm-project/libcxx/include/reflect");
-        assert(static_cast<bool>(reflect_file) && "Is <reflect> included?");
+        // Lookup the `reflect` template-struct.
         clang::LookupResult lr(S,
                                clang::DeclarationName(
                                    S.getPreprocessor().getIdentifierInfo("reflect")),
-                               SM.getLocForEndOfFile(SM.translateFile(reflect_file.get())),
-                               clang::Sema::LookupNameKind::LookupAnyName);
-        NamespaceDecl* std_namespace = S.getStdNamespace();
-        Scope* current_scope = S.getCurScope();
-        S.PushDeclContext(current_scope, std_namespace);
-        S.LookupName(lr, S.getCurScope());
-        assert(lookup_success
-               && "name lookup failed for std::reflect");
-        NamedDecl* nd = lr.getFoundDecl();
+                               SourceLocation(),
+                               clang::Sema::LookupNameKind::LookupOrdinaryName);
+        // Enter the std namespace scope in order to find `struct reflect`.
+        S.PushDeclContext(S.getCurScope(), S.getStdNamespace());
+        if (!S.LookupName(lr, S.getCurScope()))
+        {
+          S.Diag(declarator.getBeginLoc(), diag::err_reflect_template_not_found);
+          break;
+        }
         ClassTemplateDecl* ctd = lr.template getAsSingle<ClassTemplateDecl>();
-        std::cout << "class template decl\n";
-        ctd->dump();
 
-        TemplateArgument ta(Result);
+        TemplateArgument ta(TemplateArgumentType.getCanonicalType());
         ArrayRef<TemplateArgument> args(ta);
 
+        // Look for template specialization and if it doesn't exist, create it.
         void* insert_pos{nullptr};
         ClassTemplateSpecializationDecl * specialization = ctd->findSpecialization(args, insert_pos);
         if (!specialization)
@@ -1643,31 +1635,20 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
           ctd->AddSpecialization(specialization, insert_pos);
         }
 
-        std::cout << "specialization\n";
-        specialization->dump();
-
-        std::cout << "class template decl\n";
-        ctd->dump();
-
         S.PopDeclContext();
 
-        Result = Context.getTypeDeclType(specialization);
-        Result = Context.getTemplateSpecializationType(
+        QualType UnderlyingSpecialization = Context.getTypeDeclType(specialization);
+        QualType Specialization = Context.getTemplateSpecializationType(
             TemplateName{specialization->getSpecializedTemplate()},
-            specialization->getTemplateArgs().asArray(),
-            Result);
+            args,
+            UnderlyingSpecialization);
         // I think the scope specifier is wrong here.  This declarator
         // is not in the `std` namespace and thus I think the NNS that
         // it provides via ScopeRep is wrong. I'm also not sure if an
         // ElaboratedType is needed.  This was just to pattern match.
         Result = Context.getElaboratedType(ElaboratedTypeKeyword::ETK_Struct,
                                            declarator.getCXXScopeSpec().getScopeRep(),
-                                           Result);
-
-        std::cout << "template specialization type\n";
-        Result->dump();
-
-        assert(!Result.isNull() && "Didn't get a type for reflexpr?");
+                                           Specialization);
       }
     break;
 
@@ -3014,9 +2995,7 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
   case UnqualifiedIdKind::IK_Identifier:
   case UnqualifiedIdKind::IK_LiteralOperatorId:
   case UnqualifiedIdKind::IK_TemplateId:
-    std::cout << "convert decl spec to type\n";
     T = ConvertDeclSpecToType(state);
-    std::cout << "convert decl spec to type done\n";
 
     if (!D.isInvalidType() && D.getDeclSpec().isTypeSpecOwned()) {
       OwnedTagDecl = cast<TagDecl>(D.getDeclSpec().getRepAsDecl());
@@ -3049,14 +3028,11 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
     break;
   }
 
-  std::cout << "after switch\n";
-
   if (!D.getAttributes().empty())
     distributeTypeAttrsFromDeclarator(state, T);
 
   // C++11 [dcl.spec.auto]p5: reject 'auto' if it is not in an allowed context.
   if (DeducedType *Deduced = T->getContainedDeducedType()) {
-    std::cout << "contained decuded type\n";
     AutoType *Auto = dyn_cast<AutoType>(Deduced);
     int Error = -1;
 
@@ -3257,7 +3233,6 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
           << AutoRange;
     }
   }
-  std::cout << "done with if\n";
 
   if (SemaRef.getLangOpts().CPlusPlus &&
       OwnedTagDecl && OwnedTagDecl->isCompleteDefinition()) {
@@ -5395,23 +5370,16 @@ TypeSourceInfo *Sema::GetTypeForDeclarator(Declarator &D, Scope *S) {
   // Determine the type of the declarator. Not all forms of declarator
   // have a type.
 
-  std::cout << "get type for declarator\n";
   TypeProcessingState state(*this, D);
 
   TypeSourceInfo *ReturnTypeInfo = nullptr;
-  std::cout << "get decl spec type for declarator\n";
   QualType T = GetDeclSpecTypeForDeclarator(state, ReturnTypeInfo);
-  std::cout << "conditional\n";
   if (D.isPrototypeContext() && getLangOpts().ObjCAutoRefCount)
   {
-  std::cout << "infer arc write back\n";
     inferARCWriteback(state, T);
   }
 
-  std::cout << "get full type for declarator done\n";
-  auto ret = GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
-  std::cout << "get type for declarator done\n";
-  return ret;
+  return GetFullTypeForDeclarator(state, T, ReturnTypeInfo);
 }
 
 static void transferARCOwnershipToDeclSpec(Sema &S,
