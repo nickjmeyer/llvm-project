@@ -6,7 +6,7 @@ struct A
 {
 };
 
-using A_R = reflexpr(const A);
+using A_R = reflexpr(decltype(A{}));
 using A_R_T = std::reflect<A>;
 
 template <class A, class B>
