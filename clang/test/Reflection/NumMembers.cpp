@@ -2,16 +2,20 @@
 
 #include <reflect>
 
-struct A
-{
-};
+struct A;
 
-using A_R = reflexpr(decltype(A{}));
-using A_R_T = std::reflect<A>;
+struct B;
+
+template <class...>
+struct C;
+
+template <class... Ts>
+using A_R = reflexpr(C<Ts...>);
+using A_R_T = std::reflect<C<A, B>>;
 
 template <class A, class B>
 inline constexpr bool is_same_v{false};
 template <class A>
 inline constexpr bool is_same_v<A, A>{true};
 
-static_assert(is_same_v<A_R, A_R_T>);
+static_assert(is_same_v<A_R<A, B>, A_R_T>);
